@@ -8,7 +8,7 @@
 
 void taskFunc(void* arg)
 {
-    int num = *(int*)arg;
+    int num = *static_cast<int*>(arg);
     printf("thread %ld is working, number = %d\n",pthread_self(), num);
     sleep(1);
 }
