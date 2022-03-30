@@ -9,13 +9,13 @@ template<typename T>
 ThreadPool<T>::ThreadPool(int min, int max)
 {
 	//实例化任务队列
-	taskQ = new TaskQueue<T>;
 	do
 	{
+		taskQ = new TaskQueue<T>;
 		threadIDs = new pthread_t[max];
-		if (threadIDs == nullptr) 
+		if (threadIDs == nullptr||taskQ==nullptr) 
 		{
-			cout << "new threadIDs fail..." << endl;
+			cout << "new threadIDs or new taskQ fail..." << endl;
 			break;
 		}
 		memset(threadIDs, 0, sizeof(pthread_t) * max);
@@ -31,11 +31,12 @@ ThreadPool<T>::ThreadPool(int min, int max)
 		}
 		shutdown = false;
 		pthread_create(&managerID, NULL,manager,this );
-		for (int i = 0;i<min;)
+		for (int i = 0;i<min;++i)
 		{
-
+			pthread_create(&threadIDs[i], NULL, worker,this);
+			cout << "create threadID is " << to_string(threadIDs[i]) << endl;
 		}
-	} while (0);
+	} while (false);
 }
 template<typename T>
 ThreadPool<T>::~ThreadPool()
@@ -163,8 +164,7 @@ void* ThreadPool<T>::manager(void* arg)
 			// 线程池加锁
 			pthread_mutex_lock(&pool->mutexPool);
 			int num = 0;
-			for (int i = 0; i < pool->maxNum && num < NUMBER
-				&& pool->aliveNum < pool->maxNum; ++i)
+			for (int i = 0; i < pool->maxNum && num < NUMBER&& pool->aliveNum < pool->maxNum; ++i)
 			{
 				if (pool->threadIDs[i] == 0)
 				{

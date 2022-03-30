@@ -33,6 +33,6 @@ private:
     int busyNum;
     int aliveNum;
     int exitNum;
-    bool shutdown = false;
+    bool shutdown;
 };
 
