@@ -12,24 +12,28 @@ ThreadPool<T>::ThreadPool(int min, int max)
 	do
 	{
 		taskQ = new TaskQueue<T>;
+		//根据线程的最大上限给线程数组分配内存
 		threadIDs = new pthread_t[max];
 		if (threadIDs == nullptr||taskQ==nullptr) 
 		{
 			cout << "new threadIDs or new taskQ fail..." << endl;
 			break;
 		}
+		//初始化
 		memset(threadIDs, 0, sizeof(pthread_t) * max);
 		minNum = min;
 		maxNum = max;
 		busyNum = 0;
 		aliveNum = min;
 		exitNum = 0;
+		shutDown = false;
+		//初始化互斥锁、条件变量
 		if (pthread_mutex_init(&mutexPool, NULL) != 0 || pthread_cond_init(&notEmpty, NULL) != 0)
 		{
 			cout << "mutex or condition init fail...\n";
 			break;
 		}
-		shutdown = false;
+		//创建线程
 		pthread_create(&managerID, NULL,manager,this );
 		for (int i = 0;i<min;++i)
 		{
@@ -41,7 +45,8 @@ ThreadPool<T>::ThreadPool(int min, int max)
 template<typename T>
 ThreadPool<T>::~ThreadPool()
 {
-	shutdown = true;
+	shutDown = true;
+	//销毁管理者线程
 	pthread_join(managerID, NULL);
 	// 唤醒所有消费者线程
 	for (int i = 0; i < aliveNum; ++i)
@@ -59,7 +64,7 @@ ThreadPool<T>::~ThreadPool()
 template<typename T>
 void ThreadPool<T>::addTask(Task<T> task)
 {
-	if (shutdown)
+	if (shutDown)
 	{
 		return;
 	}
@@ -96,7 +101,7 @@ void* ThreadPool<T>::worker(void* arg)
 	while (true)
 	{
 		pthread_mutex_lock(&pool->mutexPool);
-		while (pool->taskQ->taskNumber()==0&&!pool->shutdown)
+		while (pool->taskQ->taskNumber()==0&&!pool->shutDown)
 		{
 			cout << "thread" << to_string(pthread_self()) << "waiting..." << endl;
 			pthread_cond_wait(&pool->notEmpty, &pool->mutexPool);
@@ -113,7 +118,7 @@ void* ThreadPool<T>::worker(void* arg)
 			}
 		}
 		// 判断线程池是否被关闭了
-		if (pool->shutdown)
+		if (pool->shutDown)
 		{
 			pthread_mutex_unlock(&pool->mutexPool);
 			pool->threadExit();
@@ -131,7 +136,7 @@ void* ThreadPool<T>::worker(void* arg)
 		task.arg = nullptr;
 
 		// 任务处理结束
-		cout << "thread " << to_string(pthread_self()) << " end working...";
+		cout << "thread " << to_string(pthread_self()) << " end working..." << endl;
 		pthread_mutex_lock(&pool->mutexPool);
 		pool->busyNum--;
 		pthread_mutex_unlock(&pool->mutexPool);
@@ -144,10 +149,10 @@ void* ThreadPool<T>::manager(void* arg)
 {
 	ThreadPool* pool = static_cast<ThreadPool*>(arg);
 	// 如果线程池没有关闭, 就一直检测
-	while (!pool->shutdown)
+	while (!pool->shutDown)
 	{
 		// 每隔5s检测一次
-		sleep(5);
+		sleep(3);
 		// 取出线程池中的任务数和线程数量
 		//  取出工作的线程池数量
 		pthread_mutex_lock(&pool->mutexPool);
@@ -157,7 +162,6 @@ void* ThreadPool<T>::manager(void* arg)
 		pthread_mutex_unlock(&pool->mutexPool);
 
 		// 创建线程
-		const int NUMBER = 2;
 		// 当前任务个数>存活的线程数 && 存活的线程数<最大线程个数
 		if (queueSize > liveNum && liveNum < pool->maxNum)
 		{
