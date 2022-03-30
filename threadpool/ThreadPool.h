@@ -1,5 +1,7 @@
 #pragma once
 #include"TaskQueue.h"
+#include"TaskQueue.cpp"
+template<typename T>
 class ThreadPool
 {
 public:
@@ -7,7 +9,7 @@ public:
     ~ThreadPool();
 
     // 添加任务
-    void addTask(Task task);
+    void addTask(Task<T> task);
     // 获取忙线程的个数
     int getBusyNumber();
     // 获取活着的线程个数
@@ -25,7 +27,7 @@ private:
     pthread_cond_t notEmpty;
     pthread_t* threadIDs;
     pthread_t managerID;
-    TaskQueue* taskQ;
+    TaskQueue<T>* taskQ;
     int minNum;
     int maxNum;
     int busyNum;
